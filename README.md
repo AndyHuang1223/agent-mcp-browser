@@ -26,6 +26,52 @@
 
 可選：設定 `MCP_MODE=headless` 或 `MCP_MODE=attach`，啟動時會顯示目前模式（實際連線目標仍由 `MCP_SERVER_URL` 決定）。
 
+## 首次安裝檢查清單（給新下載的人）
+
+- [ ] 已安裝 `Node.js 22+` 與 `pnpm`
+- [ ] 已執行 `pnpm install`
+- [ ] `.env` 已設定 `OPENAI_API_KEY`
+- [ ] 啟動方式擇一：
+  - 分開啟動：先 `pnpm run mcp:server`，再 `pnpm run dev`
+  - 一鍵啟動（Attach MCP server + Agent REPL）：`pnpm run repl`
+
+### 需不需要另外安裝「本機 MCP」？
+
+- 一般（headless）模式：**不需要先全域安裝 MCP**。本專案透過 `npx -y @playwright/mcp@latest` 啟動，首次會自動下載。
+- Attach 模式：**需要另外安裝** Playwright MCP Bridge extension（Chrome）。
+
+### 常見錯誤對照
+
+- `[error] MCP 伺服器連線失敗：http://127.0.0.1:8931/mcp`
+  - 通常是 MCP server 尚未啟動（或 `pnpm run repl` 尚未完成 attach server 就緒），或 `MCP_SERVER_URL` 設定錯誤。
+- `[launcher] Attach MCP server 在就緒前已結束` / `等待 Attach MCP server 逾時...`
+  - 通常是 extension 尚未完成授權、token 設定異常，或 attach 連線流程未完成。
+- `npx` 下載失敗（npm/pnpm 錯誤）
+  - 通常是網路、代理或權限問題，導致 `@playwright/mcp` 無法抓取。
+
+## 快速開始（推薦路徑）
+
+給第一次使用的人，先用這 3 步即可：
+
+1. 安裝與設定
+
+   ```bash
+   pnpm install
+   cp .env.example .env
+   ```
+
+   並在 `.env` 填入 `OPENAI_API_KEY`。
+
+2. 若要控制你正在使用的 Chrome 分頁，先安裝 Playwright MCP Bridge extension（Attach 模式需要）。
+
+3. 一鍵啟動
+
+   ```bash
+   pnpm run repl
+   ```
+
+若你只要 headless 跑法（不接管既有 Chrome 分頁），可改用：`pnpm run mcp:server` + `pnpm run dev`。
+
 ## Run
 
 先啟動 Playwright MCP server（HTTP，預設 headless）：
