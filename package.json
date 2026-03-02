@@ -7,9 +7,10 @@
     "dev": "tsx src/main.ts",
     "repl": "tsx src/main.ts",
     "start": "tsx src/main.ts",
+    "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",
     "mcp:server": "pnpm run mcp:server:headless",
-    "mcp:server:headless": "npx -y @playwright/mcp@latest --port 8931 --headless",
+    "mcp:server:headless": "dotenv -e .env -- npx -y @playwright/mcp@latest --port 8931 --headless",
     "mcp:server:attach": "dotenv -e .env -- npx -y @playwright/mcp@latest --port 8931 --extension --browser chrome",
     "task:product-search": "tsx src/main.ts -- --template product-search",
     "task:product-search:demo": "tsx src/main.ts -- --template product-search --query \"iPhone 16 128GB\" --locale \"台灣（繁體中文）\" --max-results 8 --allow-open-product-page",
@@ -26,8 +27,12 @@
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.38.0",
     "@types/node": "^22.18.10",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
     "dotenv-cli": "^11.0.0",
+    "eslint": "^9.38.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
