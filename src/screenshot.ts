@@ -33,6 +33,10 @@ function formatTimestampForFilename(date: Date): string {
   ].join("");
 }
 
+function createFilenameSuffix(): string {
+  return Math.random().toString(36).slice(2, 6);
+}
+
 function getScreenshotFileExtension(mimeType: string): string {
   if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
     return "jpg";
@@ -172,7 +176,7 @@ async function saveExtractedImage(
   try {
     if (image.kind === "base64") {
       const timestamp = formatTimestampForFilename(new Date());
-      const suffix = Math.random().toString(36).slice(2, 6);
+      const suffix = createFilenameSuffix();
       const filename = `screenshot-${timestamp}-${suffix}.${image.extension}`;
       const targetPath = path.join(screenshotDir, filename);
       const buffer = Buffer.from(image.data, "base64");
@@ -183,7 +187,14 @@ async function saveExtractedImage(
         ? path.join(process.env.HOME ?? "", image.sourcePath.slice(2))
         : image.sourcePath;
       const resolvedSourcePath = path.resolve(normalizedSourcePath);
-      const targetFilename = path.basename(normalizedSourcePath);
+      const parsedSourceName = path.parse(normalizedSourcePath);
+      const sourceBasename = parsedSourceName.name || "screenshot";
+      const sourceExtension =
+        parsedSourceName.ext ||
+        `.${getImageExtensionFromPath(normalizedSourcePath)}`;
+      const timestamp = formatTimestampForFilename(new Date());
+      const suffix = createFilenameSuffix();
+      const targetFilename = `${sourceBasename}-${timestamp}-${suffix}${sourceExtension}`;
       const targetPath = path.join(screenshotDir, targetFilename);
 
       if (resolvedSourcePath === path.resolve(targetPath)) {
