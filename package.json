@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts",
-    "repl": "tsx src/main.ts",
+    "repl": "tsx src/launcher.ts",
+    "repl:attach:verbose": "tsx src/launcher.ts --verbose",
+    "repl:direct": "tsx src/main.ts",
     "start": "tsx src/main.ts",
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",

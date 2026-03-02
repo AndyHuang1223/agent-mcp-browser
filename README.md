@@ -49,7 +49,19 @@ pnpm run dev
 或使用更直覺的互動模式指令：
 
 ```bash
+pnpm run repl:direct
+```
+
+若你要一鍵啟動 Attach MCP server + REPL（單一指令）：
+
+```bash
 pnpm run repl
+```
+
+若你需要較詳細的啟動診斷（除錯）：
+
+```bash
+pnpm run repl:attach:verbose
 ```
 
 若需要自訂截圖資料夾，請在 `.env` 設定 `PLAYWRIGHT_MCP_OUTPUT_DIR`。
@@ -114,28 +126,24 @@ PLAYWRIGHT_MCP_EXTENSION_TOKEN=貼上 extension 顯示的 token 值
 
 > 注意：只貼 token 值本體，不要再加 `PLAYWRIGHT_MCP_EXTENSION_TOKEN=` 前綴。
 
-### 2) 啟動順序（建議固定）
+### 2) 一鍵啟動（建議）
 
 1. Chrome 先開你要控制的網站分頁（同一個視窗、非無痕）。
-2. 啟動 attach server：
+1. 直接啟動（會自動先起 attach server，等就緒後再進 REPL）：
 
-   ```bash
-   pnpm run mcp:server:attach
-   ```
+```bash
+pnpm run repl
+```
 
-3. 啟動 agent：
+1. 用簡短任務先驗證目前頁面：
 
-   ```bash
-   pnpm run dev
-   ```
-
-4. 用簡短任務先驗證目前頁面：
-
-   ```bash
-   pnpm run dev -- "回報目前分頁網址與標題，不要導航"
-   ```
+```bash
+pnpm run repl -- "回報目前分頁網址與標題，不要導航"
+```
 
 若輸出網址是你目標網站，即表示接管成功。
+
+補充：若你要手動分開啟動（除錯用），仍可使用 `pnpm run mcp:server:attach` + `pnpm run repl:direct`。
 
 ### 3) 有沒有設定 PLAYWRIGHT_MCP_EXTENSION_TOKEN 的影響
 
