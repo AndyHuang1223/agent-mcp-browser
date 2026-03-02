@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "mcp:server": "pnpm run mcp:server:headless",
     "mcp:server:headless": "npx -y @playwright/mcp@latest --port 8931 --headless",
-    "mcp:server:attach": "npx -y @playwright/mcp@latest --port 8931 --extension --browser chrome"
+    "mcp:server:attach": "dotenv -e .env -- npx -y @playwright/mcp@latest --port 8931 --extension --browser chrome",
+    "task:product-search": "tsx src/main.ts -- --template product-search",
+    "task:product-search:demo": "tsx src/main.ts -- --template product-search --query \"iPhone 16 128GB\" --locale \"台灣（繁體中文）\" --max-results 8 --allow-open-product-page",
+    "task:product-search:precheckout-demo": "tsx src/main.ts -- --template product-search --query \"Dyson 吸塵器\" --max-results 5 --allow-open-product-page --allow-cart --allow-precheckout"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.18.10",
+    "dotenv-cli": "^11.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
