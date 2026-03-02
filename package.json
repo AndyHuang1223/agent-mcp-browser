@@ -7,7 +7,9 @@
     "dev": "tsx src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
-    "mcp:server": "npx -y @playwright/mcp@latest --port 8931 --headless"
+    "mcp:server": "pnpm run mcp:server:headless",
+    "mcp:server:headless": "npx -y @playwright/mcp@latest --port 8931 --headless",
+    "mcp:server:attach": "npx -y @playwright/mcp@latest --port 8931 --extension --browser chrome"
   },
   "keywords": [],
   "author": "",

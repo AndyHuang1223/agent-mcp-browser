@@ -10,8 +10,10 @@ import {
 const DEFAULT_MCP_URL = "http://127.0.0.1:8931/mcp";
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_TARGET_URL = "https://example.com";
+const DEFAULT_MCP_MODE = "headless";
 
 type TemplateName = "browse-flow";
+type MCPMode = "headless" | "attach";
 
 function getArgValue(args: string[], key: string): string | undefined {
   const index = args.indexOf(key);
@@ -83,6 +85,19 @@ function readNumberFromEnv(name: string, fallback: number): number {
   return parsed;
 }
 
+function readMcpModeFromEnv(): MCPMode {
+  const rawValue = process.env.MCP_MODE?.trim().toLowerCase();
+  if (!rawValue) {
+    return DEFAULT_MCP_MODE;
+  }
+
+  if (rawValue === "headless" || rawValue === "attach") {
+    return rawValue;
+  }
+
+  throw new Error(`環境變數 MCP_MODE 僅支援 headless 或 attach：${rawValue}`);
+}
+
 function getToolName(tool: Tool): string {
   if ("name" in tool && typeof tool.name === "string" && tool.name.length > 0) {
     return tool.name;
@@ -103,6 +118,7 @@ async function main(): Promise<void> {
 
   const mcpUrl = process.env.MCP_SERVER_URL ?? DEFAULT_MCP_URL;
   const model = process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+  const mcpMode = readMcpModeFromEnv();
   const mcpTimeout = readNumberFromEnv("MCP_TIMEOUT_MS", 20_000);
   const connectTimeout = readNumberFromEnv("MCP_CONNECT_TIMEOUT_MS", 10_000);
 
@@ -143,6 +159,7 @@ async function main(): Promise<void> {
   });
 
   try {
+    console.log(`[mcp] mode: ${mcpMode}`);
     console.log(`[mcp] connected: ${mcpUrl}`);
     console.log(`[run] task: ${task}`);
 
