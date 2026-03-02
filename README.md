@@ -26,8 +26,6 @@
 
 可選：設定 `MCP_MODE=headless` 或 `MCP_MODE=attach`，啟動時會顯示目前模式（實際連線目標仍由 `MCP_SERVER_URL` 決定）。
 
-可選：設定 `PLAYWRIGHT_MCP_OUTPUT_DIR=./screenshots`，讓 Playwright MCP 的輸出檔（包含 screenshot 預設檔名）落在指定資料夾。
-
 ## Run
 
 先啟動 Playwright MCP server（HTTP，預設 headless）：

@@ -5,7 +5,7 @@ import { resolveTaskFromArgs } from "./templates.js";
 const DEFAULT_MCP_URL = "http://127.0.0.1:8931/mcp";
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_MCP_MODE = "headless";
-const DEFAULT_OUTPUT_DIR = "./screenshots";
+const DEFAULT_OUTPUT_DIR = "./playwright-mcp-output/";
 const PROJECT_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
