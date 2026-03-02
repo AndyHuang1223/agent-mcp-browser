@@ -1,0 +1,27 @@
+{
+  "name": "agent-mcp-browser",
+  "version": "1.0.0",
+  "description": "OpenAI Agents SDK + Playwright MCP browser automation agent",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "mcp:server": "npx -y @playwright/mcp@latest --port 8931 --headless"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@openai/agents": "^0.5.2",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.10",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
