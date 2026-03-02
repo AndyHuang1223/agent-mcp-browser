@@ -155,6 +155,12 @@ pnpm run task:product-search:precheckout-demo
 
 若你希望 agent 直接操作你已開啟的 Chrome 分頁（不是新開自動化視窗），請使用 Attach 模式。
 
+### 0) 安裝 Playwright MCP Bridge Extension
+
+1. 開啟 Chrome 線上應用程式商店，搜尋 `Playwright MCP Bridge` 並安裝。
+2. 安裝完成後，點開 extension 頁面，找到顯示的 token。
+3. 複製 token 值（只複製值本體，不要包含變數名稱）。
+
 ### 1) 基本設定
 
 在 `.env` 至少設定：
@@ -171,6 +177,20 @@ PLAYWRIGHT_MCP_EXTENSION_TOKEN=貼上 extension 顯示的 token 值
 ```
 
 > 注意：只貼 token 值本體，不要再加 `PLAYWRIGHT_MCP_EXTENSION_TOKEN=` 前綴。
+
+例如，若 extension 顯示 token 是 `abc123xyz`，`.env` 應該寫成：
+
+```dotenv
+PLAYWRIGHT_MCP_EXTENSION_TOKEN=abc123xyz
+```
+
+不要寫成以下錯誤格式：
+
+```dotenv
+PLAYWRIGHT_MCP_EXTENSION_TOKEN=PLAYWRIGHT_MCP_EXTENSION_TOKEN=abc123xyz
+```
+
+設定或更新 token 後，請重啟 attach server（`pnpm run mcp:server:attach` 或直接重跑 `pnpm run repl`）。
 
 ### 2) 一鍵啟動（建議）
 
