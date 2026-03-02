@@ -26,6 +26,8 @@
 
 可選：設定 `MCP_MODE=headless` 或 `MCP_MODE=attach`，啟動時會顯示目前模式（實際連線目標仍由 `MCP_SERVER_URL` 決定）。
 
+可選：設定 `SCREENSHOT_DIR=./screenshots` 來指定截圖輸出資料夾。
+
 ## Run
 
 先啟動 Playwright MCP server（HTTP，預設 headless）：
@@ -52,11 +54,18 @@ pnpm run dev
 pnpm run repl
 ```
 
+若需要自訂截圖資料夾，也可在啟動時加上：
+
+```bash
+pnpm run dev -- --screenshot-dir ./tmp-shots
+```
+
 啟動後會進入互動模式（同一個 session 持續下 prompt）：
 
 - 輸入內容後按 Enter 即執行。
 - 輸入 `/exit` 可離開。
 - 在同一個程序內會沿用同一個 Agent/MCP 連線與瀏覽器控制 session。
+- 當你在指令中明確要求「截圖 / screenshot」時，若工具有回傳圖片資料，程式會儲存到 `--screenshot-dir`（或 `SCREENSHOT_DIR`）指定路徑。
 
 可帶入自訂任務作為「首輪指令」，執行後仍會留在互動模式：
 

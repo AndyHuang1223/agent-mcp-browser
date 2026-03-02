@@ -1,11 +1,15 @@
 import "dotenv/config";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import {
   Agent,
+  type CallModelInputFilter,
   MCPServerStreamableHttp,
   connectMcpServers,
   run,
+  type AgentInputItem,
   type Tool,
 } from "@openai/agents";
 
@@ -13,6 +17,7 @@ const DEFAULT_MCP_URL = "http://127.0.0.1:8931/mcp";
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_TARGET_URL = "https://example.com";
 const DEFAULT_MCP_MODE = "headless";
+const DEFAULT_SCREENSHOT_DIR = "./screenshots";
 const DEFAULT_SHOPPING_LOCALE = "台灣（繁體中文）";
 const DEFAULT_SHOPPING_MAX_RESULTS = 8;
 const MAX_SHOPPING_RESULTS_LIMIT = 20;
@@ -40,6 +45,7 @@ const VALUE_FLAGS = new Set([
   "--budget-max",
   "--locale",
   "--max-results",
+  "--screenshot-dir",
 ]);
 
 const BOOLEAN_FLAGS = new Set([
@@ -255,6 +261,268 @@ function readMcpModeFromEnv(): MCPMode {
   throw new Error(`環境變數 MCP_MODE 僅支援 headless 或 attach：${rawValue}`);
 }
 
+function readStringFromEnv(name: string, fallback: string): string {
+  const rawValue = process.env[name]?.trim();
+  if (!rawValue) {
+    return fallback;
+  }
+
+  return rawValue;
+}
+
+function shouldCaptureScreenshot(userInput: string): boolean {
+  return /(截圖|螢幕截圖|screenshot|screen\s*shot)/i.test(userInput);
+}
+
+function formatTimestampForFilename(date: Date): string {
+  const pad2 = (value: number) => value.toString().padStart(2, "0");
+  const pad3 = (value: number) => value.toString().padStart(3, "0");
+  return [
+    date.getFullYear().toString(),
+    pad2(date.getMonth() + 1),
+    pad2(date.getDate()),
+    "-",
+    pad2(date.getHours()),
+    pad2(date.getMinutes()),
+    pad2(date.getSeconds()),
+    "-",
+    pad3(date.getMilliseconds()),
+  ].join("");
+}
+
+function getScreenshotFileExtension(mimeType: string): string {
+  if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+    return "jpg";
+  }
+  if (mimeType.includes("webp")) {
+    return "webp";
+  }
+  return "png";
+}
+
+type ExtractedImage =
+  | {
+      kind: "base64";
+      data: string;
+      extension: string;
+    }
+  | {
+      kind: "path";
+      sourcePath: string;
+      extension: string;
+    };
+
+function isLikelyBase64(value: string): boolean {
+  const normalized = value.replace(/\s+/g, "");
+  if (normalized.length < 128) {
+    return false;
+  }
+  return /^[A-Za-z0-9+/=]+$/.test(normalized);
+}
+
+function getImageExtensionFromPath(filePath: string): string {
+  const extension = path.extname(filePath).toLowerCase().replace(".", "");
+  if (
+    extension === "png" ||
+    extension === "jpg" ||
+    extension === "jpeg" ||
+    extension === "webp"
+  ) {
+    return extension === "jpeg" ? "jpg" : extension;
+  }
+  return "png";
+}
+
+function extractImageFromString(value: string): ExtractedImage | undefined {
+  const dataUrlMatch = value.match(
+    /data:image\/(png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=\s]+)/i,
+  );
+  if (dataUrlMatch) {
+    return {
+      kind: "base64",
+      extension:
+        dataUrlMatch[1].toLowerCase() === "jpeg"
+          ? "jpg"
+          : dataUrlMatch[1].toLowerCase(),
+      data: dataUrlMatch[2].replace(/\s+/g, ""),
+    };
+  }
+
+  const pngPathMatch = value.match(/([~/.A-Za-z0-9_-]+\.(png|jpg|jpeg|webp))/i);
+  if (pngPathMatch) {
+    return {
+      kind: "path",
+      sourcePath: pngPathMatch[1],
+      extension: getImageExtensionFromPath(pngPathMatch[1]),
+    };
+  }
+
+  if (isLikelyBase64(value)) {
+    return {
+      kind: "base64",
+      extension: "png",
+      data: value.replace(/\s+/g, ""),
+    };
+  }
+
+  return undefined;
+}
+
+function extractImagePayload(value: unknown): ExtractedImage | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return extractImageFromString(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const extracted = extractImagePayload(item);
+      if (extracted) {
+        return extracted;
+      }
+    }
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (typeof nestedValue === "string") {
+        if (
+          key.toLowerCase().includes("mime") &&
+          nestedValue.startsWith("image/")
+        ) {
+          continue;
+        }
+
+        const direct = extractImageFromString(nestedValue);
+        if (direct) {
+          if (
+            direct.kind === "base64" &&
+            key.toLowerCase().includes("mime") &&
+            typeof (value as Record<string, unknown>).mimeType === "string"
+          ) {
+            return {
+              kind: "base64",
+              data: direct.data,
+              extension: getScreenshotFileExtension(
+                String((value as Record<string, unknown>).mimeType),
+              ),
+            };
+          }
+          return direct;
+        }
+      }
+
+      const extracted = extractImagePayload(nestedValue);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+async function saveExtractedImage(
+  image: ExtractedImage,
+  screenshotDir: string,
+): Promise<string | undefined> {
+  try {
+    await mkdir(screenshotDir, { recursive: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[screenshot] 無法建立目錄 ${screenshotDir}：${message}`);
+    return undefined;
+  }
+
+  const timestamp = formatTimestampForFilename(new Date());
+  const suffix = Math.random().toString(36).slice(2, 6);
+  const filename = `screenshot-${timestamp}-${suffix}.${image.extension}`;
+  const targetPath = path.join(screenshotDir, filename);
+
+  try {
+    if (image.kind === "base64") {
+      const buffer = Buffer.from(image.data, "base64");
+      await writeFile(targetPath, buffer);
+    } else {
+      const resolvedSourcePath = image.sourcePath.startsWith("~/")
+        ? path.join(process.env.HOME ?? "", image.sourcePath.slice(2))
+        : image.sourcePath;
+      await copyFile(resolvedSourcePath, targetPath);
+    }
+    return targetPath;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[screenshot] 無法儲存截圖：${message}`);
+    return undefined;
+  }
+}
+
+class ScreenshotCollector {
+  private enabled = false;
+  private savedPaths: string[] = [];
+
+  constructor(private readonly screenshotDir: string) {}
+
+  startTurn(enabled: boolean): void {
+    this.enabled = enabled;
+    this.savedPaths = [];
+  }
+
+  async onToolEnd(toolName: string, result: unknown): Promise<void> {
+    if (!this.enabled || !/screenshot/i.test(toolName)) {
+      return;
+    }
+
+    const stringResult =
+      typeof result === "string" ? result : JSON.stringify(result);
+    const parsedResult = (() => {
+      if (typeof result !== "string") {
+        return result;
+      }
+      try {
+        return JSON.parse(result);
+      } catch {
+        return result;
+      }
+    })();
+
+    const extracted =
+      extractImagePayload(parsedResult) ?? extractImagePayload(stringResult);
+    if (!extracted) {
+      console.warn(
+        "[screenshot] 偵測到 screenshot 工具，但未找到可儲存的圖片資料。",
+      );
+      return;
+    }
+
+    const savedPath = await saveExtractedImage(extracted, this.screenshotDir);
+    if (!savedPath) {
+      return;
+    }
+
+    this.savedPaths.push(savedPath);
+  }
+
+  finishTurn(): void {
+    if (!this.enabled) {
+      return;
+    }
+
+    if (this.savedPaths.length === 0) {
+      console.log("[screenshot] 本輪沒有可儲存的截圖輸出。");
+      return;
+    }
+
+    for (const savedPath of this.savedPaths) {
+      console.log(`[screenshot] 已儲存：${savedPath}`);
+    }
+  }
+}
+
 function getToolName(tool: Tool): string {
   if ("name" in tool && typeof tool.name === "string" && tool.name.length > 0) {
     return tool.name;
@@ -295,20 +563,117 @@ function buildTaskWithHistory(userInput: string, history: string[]): string {
   ].join("\n\n");
 }
 
+function isValidImageUrl(value: string): boolean {
+  if (value.startsWith("data:image/")) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeInvalidImageUrlNode(value: unknown): unknown | undefined {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeInvalidImageUrlNode(item))
+      .filter((item) => item !== undefined);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const source = value as Record<string, unknown>;
+  const type = typeof source.type === "string" ? source.type.toLowerCase() : "";
+  const imageUrl =
+    typeof source.image_url === "string" ? source.image_url : undefined;
+  const image = typeof source.image === "string" ? source.image : undefined;
+  const imageUrlCamel =
+    typeof source.imageUrl === "string" ? source.imageUrl : undefined;
+
+  const hasInvalidImageRef = [imageUrl, image, imageUrlCamel].some(
+    (candidate) => typeof candidate === "string" && !isValidImageUrl(candidate),
+  );
+
+  if (
+    hasInvalidImageRef &&
+    (type === "input_image" || type === "image" || type === "image_url")
+  ) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, nestedValue] of Object.entries(source)) {
+    if (
+      (key === "image_url" || key === "image" || key === "imageUrl") &&
+      typeof nestedValue === "string" &&
+      !isValidImageUrl(nestedValue)
+    ) {
+      continue;
+    }
+
+    const cleaned = sanitizeInvalidImageUrlNode(nestedValue);
+    if (cleaned !== undefined) {
+      sanitized[key] = cleaned;
+    }
+  }
+
+  if (Object.keys(sanitized).length === 0) {
+    return undefined;
+  }
+
+  if (
+    type === "input_image" &&
+    typeof sanitized.image !== "string" &&
+    typeof sanitized.imageUrl !== "string" &&
+    typeof sanitized.image_url !== "string" &&
+    typeof sanitized.file_id !== "string"
+  ) {
+    return undefined;
+  }
+
+  return sanitized;
+}
+
+const sanitizeInvalidImageUrlsBeforeModelCall: CallModelInputFilter = ({
+  modelData,
+}) => {
+  const sanitizedInput = modelData.input
+    .map((item) => sanitizeInvalidImageUrlNode(item))
+    .filter(
+      (item): item is AgentInputItem => item !== undefined,
+    ) as AgentInputItem[];
+
+  return {
+    ...modelData,
+    input: sanitizedInput,
+  };
+};
+
 async function runSingleTurn(
   agent: Agent,
   userInput: string,
   history: string[],
   maxTurns: number,
+  screenshotCollector: ScreenshotCollector,
 ): Promise<void> {
   console.log(`[run] task: ${userInput}`);
+  screenshotCollector.startTurn(shouldCaptureScreenshot(userInput));
 
   const task = buildTaskWithHistory(userInput, history);
-  const result = await run(agent, task, { maxTurns });
+  const result = await run(agent, task, {
+    maxTurns,
+    callModelInputFilter: sanitizeInvalidImageUrlsBeforeModelCall,
+  });
   const finalOutput = formatFinalOutput(result.finalOutput);
 
   console.log("\n=== Final Output ===");
   console.log(finalOutput);
+  screenshotCollector.finishTurn();
 
   history.push(`使用者：${userInput}`);
   history.push(`助理：${finalOutput}`);
@@ -318,6 +683,7 @@ async function startInteractiveSession(
   agent: Agent,
   initialTask: string | undefined,
   maxTurns: number,
+  screenshotCollector: ScreenshotCollector,
 ): Promise<void> {
   const history: string[] = [];
   const rl = readline.createInterface({ input, output });
@@ -336,7 +702,13 @@ async function startInteractiveSession(
 
     if (initialTask) {
       try {
-        await runSingleTurn(agent, initialTask, history, maxTurns);
+        await runSingleTurn(
+          agent,
+          initialTask,
+          history,
+          maxTurns,
+          screenshotCollector,
+        );
       } catch (error: unknown) {
         if (error instanceof Error) {
           console.error(`[error] 首輪任務失敗：${error.message}`);
@@ -358,7 +730,13 @@ async function startInteractiveSession(
       }
 
       try {
-        await runSingleTurn(agent, userInput, history, maxTurns);
+        await runSingleTurn(
+          agent,
+          userInput,
+          history,
+          maxTurns,
+          screenshotCollector,
+        );
       } catch (error: unknown) {
         if (error instanceof Error) {
           console.error(`[error] 任務執行失敗：${error.message}`);
@@ -387,6 +765,10 @@ async function main(): Promise<void> {
   const maxTurns = readNumberFromEnv("AGENT_MAX_TURNS", 12);
 
   const cliArgs = process.argv.slice(2);
+  const screenshotDir = path.resolve(
+    getArgValue(cliArgs, "--screenshot-dir") ??
+      readStringFromEnv("SCREENSHOT_DIR", DEFAULT_SCREENSHOT_DIR),
+  );
   const initialTask =
     cliArgs.length > 0 ? resolveTaskFromArgs(cliArgs) : undefined;
 
@@ -414,19 +796,27 @@ async function main(): Promise<void> {
       "你是瀏覽器自動化助理。需要存取網頁內容時，必須優先使用可用的 MCP 工具，不要捏造內容。若動作涉及加入購物車、填寫個資、付款或提交訂單，必須先要求使用者明確確認，不可直接執行。回覆請簡潔且使用繁體中文。",
     mcpServers: servers.active,
   });
+  const screenshotCollector = new ScreenshotCollector(screenshotDir);
 
   agent.on("agent_tool_start", (_context, tool) => {
     console.log(`[tool:start] ${getToolName(tool)}`);
   });
 
-  agent.on("agent_tool_end", (_context, tool, result) => {
+  agent.on("agent_tool_end", async (_context, tool, result) => {
     console.log(`[tool:end] ${getToolName(tool)} -> ${shorten(result)}`);
+    await screenshotCollector.onToolEnd(getToolName(tool), result);
   });
 
   try {
     console.log(`[mcp] mode: ${mcpMode}`);
     console.log(`[mcp] connected: ${mcpUrl}`);
-    await startInteractiveSession(agent, initialTask, maxTurns);
+    console.log(`[screenshot] output dir: ${screenshotDir}`);
+    await startInteractiveSession(
+      agent,
+      initialTask,
+      maxTurns,
+      screenshotCollector,
+    );
   } finally {
     await servers.close();
   }
