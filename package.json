@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts",
+    "repl": "tsx src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
     "mcp:server": "pnpm run mcp:server:headless",

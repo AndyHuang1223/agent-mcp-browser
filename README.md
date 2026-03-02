@@ -46,7 +46,19 @@ pnpm run mcp:server:attach
 pnpm run dev
 ```
 
-可帶入自訂任務（未帶入會使用預設任務）：
+或使用更直覺的互動模式指令：
+
+```bash
+pnpm run repl
+```
+
+啟動後會進入互動模式（同一個 session 持續下 prompt）：
+
+- 輸入內容後按 Enter 即執行。
+- 輸入 `/exit` 可離開。
+- 在同一個程序內會沿用同一個 Agent/MCP 連線與瀏覽器控制 session。
+
+可帶入自訂任務作為「首輪指令」，執行後仍會留在互動模式：
 
 ```bash
 pnpm run dev -- "請打開 https://example.com 並告訴我頁面標題"
