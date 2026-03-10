@@ -2,7 +2,7 @@ import "dotenv/config";
 import net from "node:net";
 import { spawn, type ChildProcess } from "node:child_process";
 
-const DEFAULT_MCP_URL = "http://127.0.0.1:8931/mcp";
+const DEFAULT_MCP_URL = "http://localhost:8931/mcp";
 const DEFAULT_WAIT_TIMEOUT_MS = 60_000;
 const DEFAULT_RETRY_INTERVAL_MS = 1_000;
 
@@ -115,6 +115,7 @@ function spawnPnpmScript(
   return spawn(pnpmCommand, args, {
     stdio: "inherit",
     env: process.env,
+    shell: process.platform === "win32",
   });
 }
 

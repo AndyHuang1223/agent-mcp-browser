@@ -42,12 +42,15 @@
 
 ### 常見錯誤對照
 
-- `[error] MCP 伺服器連線失敗：http://127.0.0.1:8931/mcp`
+- `[error] MCP 伺服器連線失敗：http://localhost:8931/mcp`
   - 通常是 MCP server 尚未啟動（或 `pnpm run repl` 尚未完成 attach server 就緒），或 `MCP_SERVER_URL` 設定錯誤。
+  - 若你手動將 `MCP_SERVER_URL` 設為 `http://127.0.0.1:8931/mcp`，可能因 Node.js 17+ 預設以 IPv6（`::1`）綁定而連線失敗（參考 [nodejs/node#40537](https://github.com/nodejs/node/issues/40537)）。請改用 `http://localhost:8931/mcp`。
 - `[launcher] Attach MCP server 在就緒前已結束` / `等待 Attach MCP server 逾時...`
   - 通常是 extension 尚未完成授權、token 設定異常，或 attach 連線流程未完成。
 - `npx` 下載失敗（npm/pnpm 錯誤）
   - 通常是網路、代理或權限問題，導致 `@playwright/mcp` 無法抓取。
+- `[launcher] spawn EINVAL`（Windows）
+  - 這是 Windows 上 `child_process.spawn()` 執行 `.cmd` 腳本的已知問題。已在 `launcher.ts` 中透過 `shell: true` 修正。
 
 ## 快速開始（推薦路徑）
 
@@ -167,7 +170,7 @@ pnpm run task:product-search:precheckout-demo
 
 ```dotenv
 MCP_MODE=attach
-MCP_SERVER_URL=http://127.0.0.1:8931/mcp
+MCP_SERVER_URL=http://localhost:8931/mcp
 ```
 
 可選（建議）：
